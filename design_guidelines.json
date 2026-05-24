@@ -1,0 +1,118 @@
+{
+  "project_info": {
+    "name": "AutoTrade Pro",
+    "type": "mobile_web_app",
+    "description": "MT5-style automatic trading application with live (mocked) charts, indicators (RSI, Bollinger, MA), market lists, and strategy configurations.",
+    "theme_mode": "dark"
+  },
+  "design_system": {
+    "archetype": "Swiss & High-Contrast (Archetype 4) + Performance Pro (Archetype 2) hybrid",
+    "core_principles": [
+      "Data Density: Optimize for high-information density on mobile viewports. Reduce padding on data lists.",
+      "Tabular Numbers: Use monospace fonts for all prices, P&L, and indicators.",
+      "Tactical Color: Green/Red for financial movement only. Keep UI neutral (black/white/gray).",
+      "Native Feel: Bottom tabs, swipeable list items, floating action buttons."
+    ],
+    "typography": {
+      "rules": "Never use Inter for numbers. Always use JetBrains Mono or Roboto Mono for digits.",
+      "families": {
+        "heading": "Inter, sans-serif",
+        "body": "Inter, sans-serif",
+        "monospace": "JetBrains Mono, Roboto Mono, monospace"
+      },
+      "scales": {
+        "h1": "text-2xl font-bold tracking-tight",
+        "h2": "text-xl font-semibold tracking-tight",
+        "body": "text-sm leading-snug text-white/90",
+        "data_large": "text-3xl font-mono font-medium tracking-tighter",
+        "data_medium": "text-base font-mono font-medium",
+        "data_small": "text-xs font-mono font-medium"
+      }
+    },
+    "colors": {
+      "background": {
+        "base": "#050505",
+        "surface": "#121212",
+        "surface_elevated": "#1A1A1A"
+      },
+      "text": {
+        "primary": "#FFFFFF",
+        "secondary": "#A1A1AA",
+        "muted": "#52525B"
+      },
+      "trading": {
+        "bullish_buy": "#00E676",
+        "bearish_sell": "#FF3B30",
+        "bullish_bg": "rgba(0, 230, 118, 0.1)",
+        "bearish_bg": "rgba(255, 59, 48, 0.1)"
+      },
+      "borders": {
+        "default": "rgba(255, 255, 255, 0.1)",
+        "focus": "rgba(255, 255, 255, 0.3)"
+      }
+    },
+    "spacing_layout": {
+      "container": "max-w-md mx-auto h-[100dvh] relative bg-[#050505] overflow-hidden flex flex-col",
+      "padding": {
+        "screen": "p-4",
+        "card": "p-3",
+        "dense": "p-2"
+      },
+      "radii": {
+        "card": "rounded-lg",
+        "button": "rounded-md",
+        "pill": "rounded-full"
+      }
+    },
+    "components": {
+      "bottom_navigation": {
+        "style": "Fixed bottom, h-16 bg-[#050505]/90 backdrop-blur-xl border-t border-white/10 flex justify-around items-center pb-safe",
+        "active_state": "text-white",
+        "inactive_state": "text-white/40"
+      },
+      "market_list_item": {
+        "layout": "flex justify-between items-center py-3 border-b border-white/5",
+        "left_col": "flex flex-col gap-1",
+        "right_col": "flex flex-col items-end gap-1"
+      },
+      "chart_area": {
+        "style": "w-full h-[300px] bg-[#0A0A0A] border border-white/10 rounded-lg relative overflow-hidden flex items-end justify-between px-2 pb-4",
+        "indicators": "absolute top-2 left-2 flex gap-2 text-[10px] font-mono text-white/70",
+        "implementation": "Use pure HTML/CSS or Shadcn charts/Recharts to build mocked candlestick bars with green/red backgrounds."
+      },
+      "strategy_config": {
+        "style": "Drawer/Modal sliding from bottom or full-screen overlay",
+        "inputs": "Shadcn-style inputs with dark theme, border-white/10, bg-[#121212]"
+      }
+    }
+  },
+  "media": {
+    "images": [
+      {
+        "category": "splash_screen",
+        "url": "https://static.prod-images.emergentagent.com/jobs/ffbc44e2-200f-4498-acf2-75cb317fd44f/images/719346617e6d0d1814ab1a10d5833f710522d5dd9f7f428253825c35fff1a61e.png",
+        "description": "Abstract dark mode trading app splash screen background with subtle glowing neon green and red patterns."
+      },
+      {
+        "category": "user_avatar",
+        "url": "https://images.pexels.com/photos/20157010/pexels-photo-20157010.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Elegant portrait of a young male professional."
+      },
+      {
+        "category": "app_logo",
+        "url": "https://images.pexels.com/photos/15342412/pexels-photo-15342412.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Elegant white geometric logo for the trading app."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Build the application as a mobile-first web view simulating an Expo React Native app. Ensure the main container is `max-w-md mx-auto` and takes up `100dvh` to mimic a mobile screen on desktop browsers.",
+    "Implement a bottom navigation bar with icons for: Quotes (Markets), Charts, Trade (Positions), History, and Settings/Algo.",
+    "Implement the Trading Dashboard showing total balance, equity, margin, and open positions (MOCKED DATA).",
+    "Create a robust Strategy Configuration view where users can toggle RSI, Bollinger Bands, and Moving Averages, and set their parameters (period, standard deviation, upper/lower bounds).",
+    "Add a global toggle for 'Live vs Simulation' mode in the settings or header.",
+    "Mock real-time price changes using `setInterval` in React to make the numbers 'tick' (turn green when price goes up, red when price goes down).",
+    "For the Chart, build a highly stylized mocked SVG or CSS flexbox candlestick chart using absolute/relative heights with Red/Green bars.",
+    "MANDATORY: Ensure every interactive element (tabs, list items, buttons, inputs) has a `data-testid` attribute in kebab-case format."
+  ]
+}
