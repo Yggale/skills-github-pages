@@ -1,0 +1,82 @@
+{
+  "summary": "Initial backend + frontend testing of AutoTrade Pro MT5-style app. 15/16 backend tests passing (1 fail, 1 skip). Frontend renders all 5 tabs successfully with French UI, AUDUSD chart, EMA/MA/BB legend, RSI subchart, BID/ASK cards, markets categories, trade form, strategy list, and EUR account. Found 2 critical backend bugs blocking core trading: (1) compute_indicators omits ema_fast/ema_slow so chart EMA overlays never render AND auto-trader crashes every 2s with KeyError, (2) pip_size category check broken so all Forex PnL is wrong.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/candles/{symbol}",
+        "issue": "compute_indicators() (server.py line ~278) does NOT compute or return ema_fast / ema_slow arrays even though the endpoint accepts ema_fast / ema_slow params. Response.indicators only contains rsi, bb_*, ma_fast, ma_slow. Frontend Indicators TS type expects ema_fast/ema_slow so EMA 9 (green) and EMA 20 (purple) lines never render on the candlestick chart (visible in dashboard screenshot - only MA/BB lines visible).",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "Auto-trader background loop",
+        "issue": "Because compute_indicators doesn't return ema_fast/ema_slow, evaluate_signal() throws KeyError: 'ema_fast' on every cycle when strat.use_ema=True. Confirmed in /var/log/supervisor/backend.err.log printing 'Auto-trader loop error: ema_fast' every 2 seconds. Result: NO auto positions are ever created when a strategy is enabled; auto trading is fully broken.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "Internal: pip_size() / calc_pnl()",
+        "issue": "pip_size() (server.py ~line 378) checks `spec['category'] == 'Forex'` but actual categories are 'Forex Majors' / 'Forex Minors' / 'Forex Exotics'. Therefore pip_size always returns 1.0 for forex pairs (instead of 0.0001), making pip count and PnL calculations off by ~10000x for every forex trade. Stop-loss/take-profit pip computation in open_position_internal is similarly affected.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "Default strategy seed",
+        "issue": "DB already had a previous-iteration strategy 'RSI + Bollinger Scalper' (EURUSD/GBPUSD/XAUUSD) so the new 'AUD/USD Day Trader' default never seeded. The startup seed only fires when collection is empty; the migration block ensures use_ema fields but doesn't change the symbol set. Users following the spec (test AUDUSD) won't see an AUDUSD strategy unless they create one. Consider also seeding when 'AUD/USD Day Trader' is missing, OR include AUDUSD in symbols on existing strategy."
+      },
+      {
+        "endpoint": "POST /api/account/reset",
+        "issue": "Only resets account + positions, does NOT reset/re-seed strategies. Combined with the issue above, the AUDUSD default strategy never appears after the first DB write."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Dashboard CandlestickChart",
+        "issue": "EMA 9 (green) and EMA 20 (purple) lines do not render on chart because the backend never returns ema_fast/ema_slow arrays (root cause is backend, see critical issues). The legend still shows them which is misleading.",
+        "testID": "chart-symbol",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Auto-trading flow (enable strategy -> auto-position appears)",
+        "issue": "Cannot complete end-to-end. Default strategy doesn't include AUDUSD and even when enabled the auto-trader loop crashes every 2s due to KeyError. AUDUSD auto positions never appear.",
+        "affected_testIDs": []
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_autotrade_api.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/iteration_1.xml"
+  ],
+  "action_items": [
+    "FIX server.py compute_indicators(): add ema_fast and ema_slow by calling calc_ema(closes, cfg.get('ema_fast', 9)) and calc_ema(closes, cfg.get('ema_slow', 20)) and return both in dict.",
+    "FIX server.py pip_size(): change check to spec['category'].startswith('Forex') (or in {'Forex Majors','Forex Minors','Forex Exotics'}). Re-verify pnl math afterwards.",
+    "Decide on AUD/USD Day Trader seeding: either upsert it on every startup if missing, or update the existing 'RSI + Bollinger Scalper' to include AUDUSD in symbols. Reset endpoint should arguably also re-seed default strategy.",
+    "After fixes, re-run /app/backend/tests/test_autotrade_api.py - the EMA test will pass and the auto-trader skip will become a real assertion."
+  ],
+  "critical_code_review_comments": [
+    "server.py compute_indicators() inconsistent with endpoint signature - silent omission of ema_fast/ema_slow despite params accepted.",
+    "server.py pip_size() category equality check is a typo-level bug with catastrophic numerical impact on every Forex trade.",
+    "server.py evaluate_signal() should defensively guard ind.get('ema_fast') to avoid taking down the entire background loop on a single missing key.",
+    "server.py run_auto_trader exception handler logs but does not back off; with the current bug it spams logs every 2s.",
+    "server.py uses deprecated @app.on_event('startup'/'shutdown'); modern FastAPI recommends lifespan handlers (non-blocking, minor)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_autotrade_api.py (new)",
+    "/app/backend/tests/conftest.py (new)"
+  ],
+  "success_rate": {
+    "backend": "87.5% (14/16 effective, 1 critical fail, 1 skipped due to dependent bug)",
+    "frontend": "~90% (UI renders, all tabs navigate, but EMA overlay missing and auto-trade flow blocked)"
+  },
+  "seed_data_creation": "None. Test order opens 0.10 lot AUDUSD then immediately closes for cleanup.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After main agent fixes (1) compute_indicators ema_fast/ema_slow, (2) pip_size category check, (3) ensure an AUDUSD strategy exists: re-run pytest /app/backend/tests/test_autotrade_api.py. Then frontend re-test should show green EMA 9 + purple EMA 20 lines on the AUDUSD chart, and enabling AUD/USD Day Trader strategy should produce a position tagged AUTO within 30-60s. The auto-trader test is gated on signal confluence so may still need to wait up to ~60s; if it skips after a fix, run it again or rely on backend log inspection for 'Opened ... auto' entries.",
+  "rca_of_issue": "compute_indicators in server.py returns a dict without ema_fast/ema_slow keys. (a) Frontend reads indicators.ema_fast directly when drawing the EMA polyline, so the lines never render. (b) evaluate_signal accesses ind['ema_fast'] (bracket, not .get) so it raises KeyError. (c) The auto-trader loop catches the exception and logs it but continues looping, never opening positions. Combined with pip_size's broken category check (which would produce nonsensical SL/TP and PnL even if the loop worked), the simulation engine is non-functional for both EMA-strategy auto-trading and accurate manual Forex PnL."
+}
