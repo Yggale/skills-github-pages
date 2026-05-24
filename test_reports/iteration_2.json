@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 2 retest of AutoTrade Pro after main agent fixes. All three reported critical bugs are RESOLVED. Backend 16/16 pytest pass (incl. previously skipped auto-trader test). Frontend dashboard renders EMA 9 + EMA 20 lines on AUDUSD chart alongside MA 20/50 and Bollinger. Auto tab shows the seeded 'AUD/USD Day Trader' strategy with EMA 9/20, SL 20p, TP 40p; Modifier modal exposes ema-fast=9 / ema-slow=20 inputs. Manual buy AUDUSD 0.10 lot produced €1.00 per pip (correct), confirming pip_size fix. Live auto position 'AUDUSD SELL 0.10 AUTO' visible in UI proving end-to-end auto-trading works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/account/reset",
+        "issue": "Still does not re-seed strategies. Low impact since startup seed is now idempotent on name, but a reset followed by a strategy delete would leave the user with no default."
+      },
+      {
+        "endpoint": "Startup seeding",
+        "issue": "Old 'RSI + Bollinger Scalper' from iteration 1 still lives in DB alongside the new 'AUD/USD Day Trader'. Not a bug per se (idempotent additive seed), but main agent may want to either remove the old one or document that both are intentional."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_autotrade_api.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/iteration_2.xml"
+  ],
+  "action_items": [
+    "Optional: have POST /api/account/reset also clear and re-seed strategies for a clean demo state.",
+    "Optional: remove the legacy 'RSI + Bollinger Scalper' from DB or label one of the two strategies as the canonical default in the UI."
+  ],
+  "critical_code_review_comments": [
+    "evaluate_signal still accesses ind['ema_fast'] / ind['ema_slow'] via bracket - now safe because compute_indicators always returns those keys, but a defensive .get(...) would make the loop crash-resistant if a future config disables EMA computation.",
+    "@app.on_event('startup'/'shutdown') is deprecated; migrate to FastAPI lifespan handlers when convenient.",
+    "verified: pip_size now uses spec['category'].startswith('Forex') - works for Majors/Minors/Exotics. PnL/€ per pip math validated end-to-end (0.10 lot AUDUSD = 1.00 €/pip)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100% (all retest items verified)"},
+  "seed_data_creation": "Test opens & closes one 0.10 lot AUDUSD position per pytest run; no residual data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All iteration-2 retest items PASS. If main agent makes further changes, re-run `pytest /app/backend/tests/test_autotrade_api.py -v` (15s, 16 tests) plus quick playwright sanity check of dashboard chart lines and Auto tab strategy card.",
+  "rca_of_issue": "N/A - iteration 2 verified previous RCAs were correctly fixed: (a) compute_indicators now returns ema_fast/ema_slow arrays, (b) pip_size category check uses startswith('Forex'), (c) AUD/USD Day Trader strategy seeded idempotently by name, (d) auto-trader loop no longer crashes and actively opens positions tagged opened_by='auto'."
+}

@@ -281,6 +281,8 @@ def compute_indicators(candles: List[dict], cfg: dict) -> dict:
     bb = calc_bollinger(closes, cfg.get("bb_period", 20), cfg.get("bb_mult", 2.0))
     ma_fast = calc_sma(closes, cfg.get("ma_fast", 50))
     ma_slow = calc_sma(closes, cfg.get("ma_slow", 200))
+    ema_fast = calc_ema(closes, cfg.get("ema_fast", 9))
+    ema_slow = calc_ema(closes, cfg.get("ema_slow", 20))
     return {
         "rsi": rsi,
         "bb_upper": bb["upper"],
@@ -288,6 +290,8 @@ def compute_indicators(candles: List[dict], cfg: dict) -> dict:
         "bb_lower": bb["lower"],
         "ma_fast": ma_fast,
         "ma_slow": ma_slow,
+        "ema_fast": ema_fast,
+        "ema_slow": ema_slow,
     }
 
 
@@ -377,7 +381,7 @@ class Strategy(BaseModel):
 # =========================================================================
 def pip_size(symbol: str) -> float:
     spec = INSTRUMENTS[symbol]
-    if spec["category"] == "Forex":
+    if spec["category"].startswith("Forex"):
         return 0.0001 if spec["digits"] >= 4 else 0.01
     return 1.0
 
@@ -467,34 +471,22 @@ def evaluate_signal(candles: List[dict], strat: dict) -> Optional[str]:
         active += 1
         f = ind["ma_fast"][-1]
         s = ind["ma_slow"][-1]
-        f_prev = ind["ma_fast"][-2] if len(ind["ma_fast"]) > 1 else None
-        s_prev = ind["ma_slow"][-2] if len(ind["ma_slow"]) > 1 else None
-        if f is not None and s is not None and f_prev is not None and s_prev is not None:
-            # Bullish trend
-            if f > s and f_prev <= s_prev:
+        if f is not None and s is not None:
+            # Trend bias: fast above slow = bullish, fast below slow = bearish
+            if f > s:
                 buy_votes += 1
-            elif f < s and f_prev >= s_prev:
-                sell_votes += 1
-            elif f > s:
-                buy_votes += 0  # already trended, no fresh signal
             elif f < s:
-                sell_votes += 0
+                sell_votes += 1
 
     if strat.get("use_ema", False):
         active += 1
         ef = ind["ema_fast"][-1]
         es = ind["ema_slow"][-1]
-        ef_prev = ind["ema_fast"][-2] if len(ind["ema_fast"]) > 1 else None
-        es_prev = ind["ema_slow"][-2] if len(ind["ema_slow"]) > 1 else None
-        if ef is not None and es is not None and ef_prev is not None and es_prev is not None:
-            # Fresh EMA crossover
-            if ef > es and ef_prev <= es_prev:
+        if ef is not None and es is not None:
+            # EMA 9 vs EMA 20: fast above slow + price above fast = strong buy
+            if ef > es and last_close >= ef:
                 buy_votes += 1
-            elif ef < es and ef_prev >= es_prev:
-                sell_votes += 1
-            elif ef > es and last_close > ef:
-                buy_votes += 1
-            elif ef < es and last_close < ef:
+            elif ef < es and last_close <= ef:
                 sell_votes += 1
 
     if active == 0:
@@ -883,9 +875,9 @@ async def on_startup():
         _ensure_market(sym)
     # Ensure account exists
     await get_account()
-    # Seed a default strategy if none
-    existing = await db.strategies.count_documents({})
-    if existing == 0:
+    # Seed default strategy if not present (idempotent on name)
+    have_day_trader = await db.strategies.find_one({"name": "AUD/USD Day Trader"})
+    if not have_day_trader:
         default = Strategy(
             name="AUD/USD Day Trader",
             enabled=False,
