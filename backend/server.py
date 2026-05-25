@@ -28,7 +28,14 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-app = FastAPI(title="AutoTrade Pro API")
+app = FastAPI(
+    title="AutoTrade Pro API",
+    description="MT5-style trading platform API with RSI, Bollinger Bands, MA, EMA indicators and auto-trading engine.",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
